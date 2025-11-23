@@ -1,0 +1,165 @@
+import os
+import logging
+from typing import List, Optional
+from dotenv import load_dotenv
+import google.generativeai as genai
+from pypdf import PdfReader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.output_parsers import StrOutputParser
+
+from dotenv import load_dotenv
+load_dotenv()  
+googleAPI= os.getenv("GOOGLE_API_KEY")
+
+# Configiuring the Google API key
+api_key = googleAPI
+genai.configure(api_key=api_key)
+
+class PDFIngester:
+    def __init__(self, embedding_model: str = "models/gemini-embedding-001", chunk_size: int = 1000, chunk_overlap: int = 200):
+        
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model=embedding_model,
+            google_api_key=api_key  
+        )
+        self.splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=len,
+        )
+        self.index_path = r"C:\Users\yoanu\OneDrive\Desktop\SoftwareEngineering\MainProject\vectors\faiss_index"  
+        
+    def extract_text(self, pdf_path: str) -> List[Document]:
+        reader = PdfReader(pdf_path)
+        documents = []
+
+        for i, page in enumerate(reader.pages, start=1):
+            text = page.extract_text()
+            if text.strip():  
+                doc = Document(
+                    page_content=text.strip(),
+                    metadata={"source": pdf_path, "page": i}
+                )
+                documents.append(doc)
+
+        return documents
+
+    def chunk_documents(self, documents: List[Document]) -> List[Document]:
+        chunks = self.splitter.split_documents(documents)
+        return chunks
+
+    def ingest_pdf(self, pdf_path: str, save_index: bool = True) -> FAISS:
+        """
+        extract → chunk → embed → store.
+        """
+        try:
+            docs = self.extract_text(pdf_path)
+            if not docs:
+                raise ValueError("No text extracted from PDF. It might be scanned—consider OCR.")
+
+            chunks = self.chunk_documents(docs)
+            if not chunks:
+                raise ValueError("No chunks created. Check PDF content.")
+
+            vectorstore = FAISS.from_documents(chunks, self.embeddings)
+
+            if save_index:
+                os.makedirs(r"C:\Users\yoanu\OneDrive\Desktop\SoftwareEngineering\MainProject\vectors\faiss_index", exist_ok=True)
+                vectorstore.save_local(self.index_path)
+
+            return vectorstore
+
+        except Exception as e:
+            print(f"Ingestion failed: {str(e)}")
+            if "metadata.google.internal" in str(e) or "503" in str(e):
+                print("Auth issue—ensure API key is passed explicitly.")
+            raise
+
+    @classmethod
+    def load_vectorstore(cls, index_path: str = None, api_key: str = None) -> Optional[FAISS]:
+        """
+        Load an existing FAISS index.
+        """
+        index_path = index_path
+        if os.path.exists(index_path):
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-001",
+                google_api_key=api_key or googleAPI
+            )
+            return FAISS.load_local(
+                index_path,
+                embeddings,
+                allow_dangerous_deserialization=True
+            )
+        print("No existing index found")
+        return None
+
+
+class QAPipeline:
+    def __init__(self, vectorstore: FAISS, embedding_model: str = "models/gemini-embedding-001",
+                 llm_model: str = "gemini-2.5-pro", temperature: float = 0.1, top_k: int = 3):
+
+        self.vectorstore = vectorstore
+        self.top_k = top_k
+
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model=embedding_model,
+            google_api_key=api_key
+        )
+
+        self.llm = ChatGoogleGenerativeAI(
+            model=llm_model,
+            temperature=temperature,
+            google_api_key=api_key
+        )
+# best segement defining the syntax of the I/O with the model
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a helpful assistant that answers questions based solely on the provided context from a PDF document.
+            If the answer isn't in the context, say "I couldn't find that information in the document."
+            Keep responses concise, accurate, and cite page numbers where possible. Also when the user gives a query after answering the query attach links to 
+            other research papers that can be referred but they should be relevant to the current paper uploaded by the user. If the user doesn't ask for the citations in his
+             query then you can give just 2 but he asks for citations give atleast 5.""" ),
+            ("human", """Context:
+               {context}
+
+               Question: {question}
+
+               Answer:""")
+        ])
+
+        # Simplified chain: Just prompt | LLM | Parser (retrieval manual below)
+        self.chain = self.prompt | self.llm | StrOutputParser()
+
+        print(f"QA Pipeline initialized with LLM={llm_model}, top_k={top_k}")
+
+    def format_docs(self, docs: List[Document]) -> str:
+        formatted = []
+        for i, doc in enumerate(docs, 1):
+            page = doc.metadata.get("page", "Unknown")
+            snippet = doc.page_content[:300] + "..." if len(doc.page_content) > 300 else doc.page_content
+            formatted.append(f"[Chunk {i}, Page {page}]: {snippet}")
+        return "\n\n".join(formatted)
+
+    def answer_question(self, question: str) -> str:
+        try:
+            print(f"Answering question: {question}")
+
+            print("Embedding query...")
+            query_embedding = self.embeddings.embed_query(question)
+            print("Query embedded successfully!")
+            docs = self.vectorstore.similarity_search_by_vector(query_embedding, k=self.top_k)
+            context = self.format_docs(docs)
+            response = self.chain.invoke({"context": context, "question": question})
+            print("Answer generated successfully!")
+            return response
+
+        except Exception as e:
+            print(f"QA failed: {str(e)}")
+            if "metadata.google.internal" in str(e) or "503" in str(e):
+                print("ADC auth timeout—manual embedding should prevent this. Check API key quotas.")
+            return "Sorry, an error occurred while processing your question."
