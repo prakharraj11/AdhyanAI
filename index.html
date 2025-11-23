@@ -355,7 +355,7 @@
             formData.append("file", file);
 
             try {
-                const response = await fetch('http://127.0.0.1:8000/api/upload', {
+                const response = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 });
@@ -388,7 +388,7 @@
             const loadingId = addMessage("ai", '<span class="loading-dots">Thinking</span>');
 
             try {
-                const response = await fetch('http://127.0.0.1:8000/api/ask', {
+                const response = await fetch('/api/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ question: text })
