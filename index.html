@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>अध्ययन - Research Dashboard</title>
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+
+    <style>
+        /* --- CSS VARIABLES --- */
+        :root {
+            --bg-dark: #09090b;
+            --bg-panel: #121214;
+            --bg-hover: #27272a;
+            --text-main: #e4e4e7;
+            --text-muted: #a1a1aa;
+            --accent-blue: #3b82f6;
+            --border-color: #27272a;
+            --input-bg: #18181b;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Light Theme */
+        body.light-theme {
+            --bg-dark: #ffffff;
+            --bg-panel: #f4f4f5;
+            --bg-hover: #e4e4e7;
+            --text-main: #18181b;
+            --text-muted: #71717a;
+            --accent-blue: #2563eb;
+            --border-color: #e4e4e7;
+            --input-bg: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- UTILITIES --- */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .w-full { width: 100%; }
+
+        /* --- LOGIN PAGE --- */
+        #login-view {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 20%, var(--bg-panel) 0%, var(--bg-dark) 60%);
+            z-index: 50;
+            transition: opacity 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            width: 100%; max-width: 400px; padding: 3rem 2rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 25px 50px -12px var(--shadow-color);
+            text-align: center;
+        }
+
+        .app-name-large {
+            font-size: 3rem; font-weight: 700; margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .login-subtitle {
+            color: var(--text-muted); font-size: 0.95rem; margin-bottom: 3rem;
+        }
+
+        #google-btn-container {
+            display: flex; justify-content: center; width: 100%;
+        }
+
+        /* --- DASHBOARD --- */
+        #dashboard-view { display: flex; height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px; background: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column; padding: 1rem;
+            flex-shrink: 0;
+        }
+
+        .workspace-dropdown {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.5rem; margin-bottom: 1rem; cursor: pointer;
+            border-radius: 6px; color: var(--text-main); font-weight: 500;
+        }
+        .workspace-dropdown:hover { background: var(--bg-hover); }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 0.6rem 0.5rem; color: var(--text-muted);
+            border-radius: 6px; font-size: 0.9rem; cursor: pointer; margin-bottom: 2px;
+        }
+        .nav-item:hover, .nav-item.active { background: var(--bg-hover); color: var(--text-main); }
+
+        /* Main Content */
+        .main-content {
+            flex: 1; position: relative;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 2rem; background-color: var(--bg-dark);
+        }
+
+        .top-right-controls {
+            position: absolute; top: 1.5rem; right: 1.5rem;
+            display: flex; align-items: center; gap: 1.5rem;
+        }
+        .app-name-watermark { font-weight: 600; color: var(--text-muted); opacity: 0.5; }
+
+        /* Chat Interface */
+        .chat-interface {
+            width: 100%; max-width: 800px;
+            height: 100%; /* Take full height */
+            display: flex; flex-direction: column;
+            justify-content: flex-end; /* Push content to bottom */
+            padding-bottom: 2rem;
+        }
+
+        /* Chat History / Response Area */
+        #response-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 1.5rem;
+            padding-right: 10px;
+            display: flex; flex-direction: column; gap: 1.5rem;
+        }
+        
+        .message-bubble {
+            padding: 1rem; border-radius: 12px;
+            max-width: 85%; line-height: 1.6; font-size: 0.95rem;
+        }
+        .user-msg {
+            background: var(--bg-hover); align-self: flex-end; color: var(--text-main);
+        }
+        .ai-msg {
+            background: transparent; align-self: flex-start; color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Markdown Styles for AI Response */
+        .ai-msg p { margin-bottom: 0.8rem; }
+        .ai-msg p:last-child { margin-bottom: 0; }
+        .ai-msg strong { color: white; font-weight: 700; }
+        .ai-msg h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; color: var(--accent-blue); }
+        .ai-msg ul, .ai-msg ol { margin-left: 1.5rem; margin-bottom: 0.8rem; }
+        .ai-msg li { margin-bottom: 0.4rem; }
+        body.light-theme .ai-msg strong { color: black; }
+        
+        /* LINK STYLING */
+        .ai-msg a { 
+            color: #3b82f6; 
+            text-decoration: none; 
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+        .ai-msg a:hover { border-bottom-color: #3b82f6; }
+
+        /* Input Area */
+        .input-container {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%; background: transparent; border: none;
+            color: var(--text-main); font-size: 1rem; outline: none;
+            padding: 0.5rem 0; resize: none; height: 50px;
+            font-family: var(--font-family);
+        }
+
+        .input-actions {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color);
+        }
+
+        .action-icon-btn {
+            background: transparent; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 6px; border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .action-icon-btn:hover { background: var(--bg-hover); color: var(--text-main); }
+        
+        #send-btn { background: var(--text-main); color: var(--bg-dark); }
+        #send-btn:hover { opacity: 0.9; }
+
+        /* Notification Toast */
+        .toast {
+            position: fixed; bottom: 20px; right: 20px;
+            background: var(--accent-blue); color: white;
+            padding: 10px 20px; border-radius: 8px;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            z-index: 100; font-size: 0.9rem;
+        }
+        .toast.show { opacity: 1; }
+
+        .icon { width: 20px; height: 20px; stroke-width: 2; }
+        
+        /* Loading Animation */
+        .loading-dots::after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
+        @keyframes dots { 0%{color:transparent} 50%{color:var(--text-main)} 100%{color:transparent} }
+    </style>
+</head>
+<body>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="toast">Action Successful</div>
+
+    <!-- LOGIN VIEW -->
+    <div id="login-view">
+        <div class="login-container">
+            <h1 class="app-name-large">अध्ययन</h1>
+            <p class="login-subtitle">Your AI Research Companion</p>
+            <div id="google-btn-container"></div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view" class="hidden">
+        
+        <div class="top-right-controls">
+            <span class="app-name-watermark">अध्ययन</span>
+            <input type="checkbox" id="theme-toggle" style="accent-color: var(--accent-blue);">
+            <label for="theme-toggle" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer;">Light Mode</label>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="workspace-dropdown">
+                <span id="user-name-display">Guest Workspace</span>
+            </div>
+            <nav>
+                <div class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> Home</div>
+                <div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg> Library</div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="chat-interface">
+                
+                <!-- Chat History -->
+                <div id="response-area">
+                    <!-- Default welcome message -->
+                    <div class="message-bubble ai-msg">
+                        Hello! Upload a PDF to get started, or ask me anything.
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-container">
+                    <textarea id="question-input" class="search-input" placeholder="Ask a question about your PDF..."></textarea>
+                    
+                    <div class="input-actions">
+                        <div style="display: flex; gap: 10px;">
+                            <!-- Upload Button -->
+                            <input type="file" id="pdf-upload" accept=".pdf" hidden>
+                            <button class="action-icon-btn" onclick="document.getElementById('pdf-upload').click()" title="Upload PDF">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                                <span style="font-size: 0.8rem; margin-left: 5px;" id="file-name-label">Upload PDF</span>
+                            </button>
+                        </div>
+                        
+                        <button id="send-btn" class="action-icon-btn" title="Send">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- LOGIC -->
+    <script>
+        // REPLACE THIS WITH YOUR CLIENT ID
+        const GOOGLE_CLIENT_ID = "369100109217-6t2ja7ebmhtqrcjg5lt8j8m42gkeguv7.apps.googleusercontent.com";
+
+        // DOM Elements
+        const loginView = document.getElementById('login-view');
+        const dashboardView = document.getElementById('dashboard-view');
+        const questionInput = document.getElementById('question-input');
+        const sendBtn = document.getElementById('send-btn');
+        const responseArea = document.getElementById('response-area');
+        const userNameDisplay = document.getElementById('user-name-display');
+        const fileInput = document.getElementById('pdf-upload');
+        const fileNameLabel = document.getElementById('file-name-label');
+        const toast = document.getElementById('toast');
+
+        // --- 1. GOOGLE LOGIN ---
+        window.onload = function() {
+            if (typeof google !== 'undefined') {
+                google.accounts.id.initialize({
+                    client_id: GOOGLE_CLIENT_ID,
+                    callback: handleCredentialResponse
+                });
+                google.accounts.id.renderButton(
+                    document.getElementById("google-btn-container"),
+                    { theme: "outline", size: "large", width: 300 }
+                );
+            }
+        };
+
+        function handleCredentialResponse(response) {
+            const payload = decodeJwt(response.credential);
+            userNameDisplay.textContent = `${payload.given_name}'s Workspace`;
+            
+            loginView.style.opacity = '0';
+            setTimeout(() => {
+                loginView.classList.add('hidden');
+                dashboardView.classList.remove('hidden');
+            }, 500);
+        }
+
+        function decodeJwt(token) {
+            var base64Url = token.split('.')[1];
+            var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            return JSON.parse(decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+        }
+
+        // --- 2. FILE UPLOAD LOGIC ---
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            fileNameLabel.textContent = "Uploading...";
+            
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    fileNameLabel.textContent = file.name;
+                    showToast("PDF Uploaded & Processed!");
+                    addMessage("ai", `I've read <b>${file.name}</b>. Ask me anything about it!`);
+                } else {
+                    throw new Error("Upload failed");
+                }
+            } catch (error) {
+                console.error(error);
+                fileNameLabel.textContent = "Upload Failed";
+                showToast("Error uploading file");
+            }
+        });
+
+        // --- 3. CHAT LOGIC ---
+        async function sendMessage() {
+            const text = questionInput.value.trim();
+            if (!text) return;
+
+            // Add User Message (Plain text is fine for user)
+            addMessage("user", text);
+            questionInput.value = '';
+
+            // Loading Indicator
+            const loadingId = addMessage("ai", '<span class="loading-dots">Thinking</span>');
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: text })
+                });
+
+                const data = await response.json();
+                
+                // --- ROBUST MARKDOWN PARSING ---
+                let parsedHTML;
+                if (typeof marked !== 'undefined') {
+                    // Force the use of the parser
+                    parsedHTML = marked.parse(data.answer);
+                } else {
+                    console.error("Marked library not loaded");
+                    parsedHTML = data.answer.replace(/\n/g, "<br>"); // Fallback
+                }
+                
+                document.getElementById(loadingId).innerHTML = parsedHTML;
+
+            } catch (error) {
+                console.error("Chat error:", error);
+                document.getElementById(loadingId).textContent = "Error: Could not connect to backend.";
+            }
+        }
+
+        function addMessage(role, content) {
+            const div = document.createElement('div');
+            div.className = `message-bubble ${role}-msg`;
+            div.id = `msg-${Date.now()}`;
+            div.innerHTML = content;
+            responseArea.appendChild(div);
+            responseArea.scrollTop = responseArea.scrollHeight;
+            return div.id;
+        }
+
+        // Event Listeners
+        sendBtn.addEventListener('click', sendMessage);
+        questionInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
