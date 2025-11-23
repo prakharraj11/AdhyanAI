@@ -10,8 +10,9 @@ from rag import QAPipeline, PDFIngester
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HTML_PATH = os.path.join(BASE_DIR, "index.html") # this basically fetches the path of the frontend file
-UPLOAD_DIR = os.path.join(BASE_DIR, "temp_uploads") # this fetches the path of the place where we are storing the uploaded file
-
+import tempfile
+UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "adhyan_uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True) # this creates a new directory if it doesn't exist 
 sys.path.append(BASE_DIR)
 

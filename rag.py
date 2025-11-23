@@ -32,12 +32,16 @@ class PDFIngester:
             chunk_overlap=chunk_overlap,
             length_function=len,
         )
-        self.index_path = r"C:\Users\yoanu\OneDrive\Desktop\SoftwareEngineering\MainProject\vectors\faiss_index"  
+        
+        # FIX: Use a relative path suitable for Linux/Cloud
+        # This creates a 'vectors' folder inside the current working directory of the server
+        base_path = os.getcwd()
+        self.index_path = os.path.join(base_path, "vectors", "faiss_index")
         
     def extract_text(self, pdf_path: str) -> List[Document]:
+        # ... (Keep this method exactly as it is) ...
         reader = PdfReader(pdf_path)
         documents = []
-
         for i, page in enumerate(reader.pages, start=1):
             text = page.extract_text()
             if text.strip():  
@@ -46,17 +50,14 @@ class PDFIngester:
                     metadata={"source": pdf_path, "page": i}
                 )
                 documents.append(doc)
-
         return documents
 
     def chunk_documents(self, documents: List[Document]) -> List[Document]:
+        # ... (Keep this method exactly as it is) ...
         chunks = self.splitter.split_documents(documents)
         return chunks
 
     def ingest_pdf(self, pdf_path: str, save_index: bool = True) -> FAISS:
-        """
-        extract → chunk → embed → store.
-        """
         try:
             docs = self.extract_text(pdf_path)
             if not docs:
@@ -69,15 +70,15 @@ class PDFIngester:
             vectorstore = FAISS.from_documents(chunks, self.embeddings)
 
             if save_index:
-                os.makedirs(r"C:\Users\yoanu\OneDrive\Desktop\SoftwareEngineering\MainProject\vectors\faiss_index", exist_ok=True)
+                # FIX: Ensure the directory exists using the dynamic path
+                folder_path = os.path.dirname(self.index_path)
+                os.makedirs(folder_path, exist_ok=True)
                 vectorstore.save_local(self.index_path)
 
             return vectorstore
 
         except Exception as e:
             print(f"Ingestion failed: {str(e)}")
-            if "metadata.google.internal" in str(e) or "503" in str(e):
-                print("Auth issue—ensure API key is passed explicitly.")
             raise
 
     @classmethod
