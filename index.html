@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>अध्ययन - Research Dashboard</title>
     
+    <!-- GOOGLE IDENTITY SERVICES -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
+    <!-- MARKDOWN PARSER (Pinned Version 4.3.0 for stability) -->
     <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
 
     <style>
@@ -21,6 +23,7 @@
             --border-color: #27272a;
             --input-bg: #18181b;
             --shadow-color: rgba(0, 0, 0, 0.5);
+            --sidebar-width: 260px;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
@@ -54,17 +57,49 @@
         .flex { display: flex; }
         .flex-col { flex-direction: column; }
         .w-full { width: 100%; }
+        .icon { width: 20px; height: 20px; stroke-width: 2; }
+
+        /* --- THEME TOGGLE SLIDER --- */
+        .theme-switch-wrapper {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .theme-switch {
+            position: relative; display: inline-block; width: 40px; height: 22px;
+        }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--bg-hover);
+            transition: .4s; border-radius: 34px;
+            border: 1px solid var(--border-color);
+        }
+        .slider:before {
+            position: absolute; content: "";
+            height: 14px; width: 14px;
+            left: 3px; bottom: 3px;
+            background-color: var(--text-muted);
+            transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent-blue); }
+        input:checked + .slider:before {
+            transform: translateX(18px); background-color: white;
+        }
+        .theme-label { font-size: 0.8rem; color: var(--text-muted); }
 
         /* --- LOGIN PAGE --- */
         #login-view {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle at 50% 20%, var(--bg-panel) 0%, var(--bg-dark) 60%);
-            z-index: 50;
-            transition: opacity 0.5s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            z-index: 50; transition: opacity 0.5s ease;
+            display: flex; align-items: center; justify-content: center;
+        }
+        
+        /* Login Page Controls (Theme Switcher) */
+        .login-controls {
+            position: absolute; top: 1.5rem; right: 1.5rem;
+            display: flex; align-items: center; gap: 1rem;
+            z-index: 60;
         }
 
         .login-container {
@@ -87,20 +122,21 @@
             color: var(--text-muted); font-size: 0.95rem; margin-bottom: 3rem;
         }
 
-        #google-btn-container {
-            display: flex; justify-content: center; width: 100%;
-        }
+        #google-btn-container { display: flex; justify-content: center; width: 100%; }
 
         /* --- DASHBOARD --- */
-        #dashboard-view { display: flex; height: 100vh; }
+        #dashboard-view { display: flex; height: 100vh; position: relative; }
 
-        /* Sidebar */
+        /* Sidebar Styling & Animation */
         .sidebar {
-            width: 260px; background: var(--bg-panel);
+            width: var(--sidebar-width); background: var(--bg-panel);
             border-right: 1px solid var(--border-color);
             display: flex; flex-direction: column; padding: 1rem;
-            flex-shrink: 0;
+            flex-shrink: 0; position: absolute;
+            top: 0; bottom: 0; left: 0; z-index: 20;
+            transition: transform 0.3s ease-in-out;
         }
+        .sidebar.collapsed { transform: translateX(-100%); }
 
         .workspace-dropdown {
             display: flex; align-items: center; justify-content: space-between;
@@ -116,51 +152,57 @@
         }
         .nav-item:hover, .nav-item.active { background: var(--bg-hover); color: var(--text-main); }
 
-        /* Main Content */
+        /* Main Content Adjustments */
         .main-content {
             flex: 1; position: relative;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             padding: 2rem; background-color: var(--bg-dark);
+            margin-left: var(--sidebar-width);
+            transition: margin-left 0.3s ease-in-out;
+            width: 100%;
         }
+        .main-content.expanded { margin-left: 0; }
 
+        /* Controls Area */
         .top-right-controls {
             position: absolute; top: 1.5rem; right: 1.5rem;
             display: flex; align-items: center; gap: 1.5rem;
+            z-index: 30;
         }
         .app-name-watermark { font-weight: 600; color: var(--text-muted); opacity: 0.5; }
 
+        /* Sidebar Toggle Button */
+        #sidebar-toggle {
+            position: absolute; top: 1.5rem; left: 1.5rem; z-index: 30;
+            background: transparent; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 8px; border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
+        }
+        #sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-main); }
+
         /* Chat Interface */
         .chat-interface {
-            width: 100%; max-width: 800px;
-            height: 100%; /* Take full height */
+            width: 100%; max-width: 800px; height: 100%;
             display: flex; flex-direction: column;
-            justify-content: flex-end; /* Push content to bottom */
-            padding-bottom: 2rem;
+            justify-content: flex-end; padding-bottom: 2rem;
         }
 
-        /* Chat History / Response Area */
         #response-area {
-            flex-grow: 1;
-            overflow-y: auto;
-            margin-bottom: 1.5rem;
-            padding-right: 10px;
-            display: flex; flex-direction: column; gap: 1.5rem;
+            flex-grow: 1; overflow-y: auto; margin-bottom: 1.5rem;
+            padding-right: 10px; display: flex; flex-direction: column; gap: 1.5rem;
         }
         
         .message-bubble {
             padding: 1rem; border-radius: 12px;
             max-width: 85%; line-height: 1.6; font-size: 0.95rem;
         }
-        .user-msg {
-            background: var(--bg-hover); align-self: flex-end; color: var(--text-main);
-        }
+        .user-msg { background: var(--bg-hover); align-self: flex-end; color: var(--text-main); }
         .ai-msg {
             background: transparent; align-self: flex-start; color: var(--text-main);
             border: 1px solid var(--border-color);
         }
 
-        /* Markdown Styles for AI Response */
         .ai-msg p { margin-bottom: 0.8rem; }
         .ai-msg p:last-child { margin-bottom: 0; }
         .ai-msg strong { color: white; font-weight: 700; }
@@ -168,23 +210,13 @@
         .ai-msg ul, .ai-msg ol { margin-left: 1.5rem; margin-bottom: 0.8rem; }
         .ai-msg li { margin-bottom: 0.4rem; }
         body.light-theme .ai-msg strong { color: black; }
-        
-        /* LINK STYLING */
-        .ai-msg a { 
-            color: #3b82f6; 
-            text-decoration: none; 
-            border-bottom: 1px solid transparent;
-            transition: border-color 0.2s;
-        }
+        .ai-msg a { color: #3b82f6; text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.2s; }
         .ai-msg a:hover { border-bottom-color: #3b82f6; }
 
-        /* Input Area */
         .input-container {
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
+            background: var(--input-bg); border: 1px solid var(--border-color);
             border-radius: 16px; padding: 1rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative;
         }
 
         .search-input {
@@ -206,11 +238,9 @@
             display: flex; align-items: center; justify-content: center;
         }
         .action-icon-btn:hover { background: var(--bg-hover); color: var(--text-main); }
-        
         #send-btn { background: var(--text-main); color: var(--bg-dark); }
         #send-btn:hover { opacity: 0.9; }
 
-        /* Notification Toast */
         .toast {
             position: fixed; bottom: 20px; right: 20px;
             background: var(--accent-blue); color: white;
@@ -220,9 +250,6 @@
         }
         .toast.show { opacity: 1; }
 
-        .icon { width: 20px; height: 20px; stroke-width: 2; }
-        
-        /* Loading Animation */
         .loading-dots::after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
         @keyframes dots { 0%{color:transparent} 50%{color:var(--text-main)} 100%{color:transparent} }
     </style>
@@ -234,6 +261,17 @@
 
     <!-- LOGIN VIEW -->
     <div id="login-view">
+        <!-- Login Page Theme Control -->
+        <div class="login-controls">
+            <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="theme-toggle-login">
+                    <input type="checkbox" id="theme-toggle-login">
+                    <span class="slider"></span>
+                </label>
+                <span class="theme-label">Theme</span>
+            </div>
+        </div>
+
         <div class="login-container">
             <h1 class="app-name-large">अध्ययन</h1>
             <p class="login-subtitle">Your AI Research Companion</p>
@@ -244,14 +282,24 @@
     <!-- DASHBOARD VIEW -->
     <div id="dashboard-view" class="hidden">
         
+        <!-- Toggle Sidebar Button (Top Left) -->
+        <button id="sidebar-toggle" title="Toggle Sidebar">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+
+        <!-- Top Right Controls (Dashboard) -->
         <div class="top-right-controls">
             <span class="app-name-watermark">अध्ययन</span>
-            <input type="checkbox" id="theme-toggle" style="accent-color: var(--accent-blue);">
-            <label for="theme-toggle" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer;">Light Mode</label>
+            <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="theme-toggle-dash">
+                    <input type="checkbox" id="theme-toggle-dash">
+                    <span class="slider"></span>
+                </label>
+            </div>
         </div>
 
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="workspace-dropdown">
                 <span id="user-name-display">Guest Workspace</span>
             </div>
@@ -262,24 +310,19 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content">
             <div class="chat-interface">
-                
-                <!-- Chat History -->
                 <div id="response-area">
-                    <!-- Default welcome message -->
                     <div class="message-bubble ai-msg">
                         Hello! Upload a PDF to get started, or ask me anything.
                     </div>
                 </div>
 
-                <!-- Input Area -->
                 <div class="input-container">
                     <textarea id="question-input" class="search-input" placeholder="Ask a question about your PDF..."></textarea>
                     
                     <div class="input-actions">
                         <div style="display: flex; gap: 10px;">
-                            <!-- Upload Button -->
                             <input type="file" id="pdf-upload" accept=".pdf" hidden>
                             <button class="action-icon-btn" onclick="document.getElementById('pdf-upload').click()" title="Upload PDF">
                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
@@ -299,8 +342,8 @@
 
     <!-- LOGIC -->
     <script>
-        // REPLACE THIS WITH YOUR CLIENT ID
-        const GOOGLE_CLIENT_ID = "369100109217-6t2ja7ebmhtqrcjg5lt8j8m42gkeguv7.apps.googleusercontent.com";
+        // REPLACE WITH YOUR CLIENT ID
+        const GOOGLE_CLIENT_ID = '369100109217-6t2ja7ebmhtqrcjg5lt8j8m42gkeguv7.apps.googleusercontent.com';
 
         // DOM Elements
         const loginView = document.getElementById('login-view');
@@ -312,8 +355,46 @@
         const fileInput = document.getElementById('pdf-upload');
         const fileNameLabel = document.getElementById('file-name-label');
         const toast = document.getElementById('toast');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const mainContent = document.getElementById('main-content');
+        
+        // Theme Switches
+        const themeToggleLogin = document.getElementById('theme-toggle-login');
+        const themeToggleDash = document.getElementById('theme-toggle-dash');
 
-        // --- 1. GOOGLE LOGIN ---
+        // --- 1. THEME LOGIC ---
+        function applyTheme(isLight) {
+            if (isLight) {
+                document.body.classList.add('light-theme');
+                localStorage.setItem('theme', 'light');
+                themeToggleLogin.checked = true;
+                themeToggleDash.checked = true;
+            } else {
+                document.body.classList.remove('light-theme');
+                localStorage.setItem('theme', 'dark');
+                themeToggleLogin.checked = false;
+                themeToggleDash.checked = false;
+            }
+        }
+
+        // Initialize Theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            applyTheme(true);
+        }
+
+        // Event Listeners for Theme
+        themeToggleLogin.addEventListener('change', (e) => applyTheme(e.target.checked));
+        themeToggleDash.addEventListener('change', (e) => applyTheme(e.target.checked));
+
+        // --- 2. SIDEBAR TOGGLE LOGIC ---
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+        });
+
+        // --- 3. GOOGLE LOGIN ---
         window.onload = function() {
             if (typeof google !== 'undefined') {
                 google.accounts.id.initialize({
@@ -344,13 +425,12 @@
             return JSON.parse(decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
         }
 
-        // --- 2. FILE UPLOAD LOGIC ---
+        // --- 4. FILE UPLOAD LOGIC ---
         fileInput.addEventListener('change', async () => {
             const file = fileInput.files[0];
             if (!file) return;
 
             fileNameLabel.textContent = "Uploading...";
-            
             const formData = new FormData();
             formData.append("file", file);
 
@@ -375,16 +455,14 @@
             }
         });
 
-        // --- 3. CHAT LOGIC ---
+        // --- 5. CHAT LOGIC ---
         async function sendMessage() {
             const text = questionInput.value.trim();
             if (!text) return;
 
-            // Add User Message (Plain text is fine for user)
             addMessage("user", text);
             questionInput.value = '';
 
-            // Loading Indicator
             const loadingId = addMessage("ai", '<span class="loading-dots">Thinking</span>');
 
             try {
@@ -396,16 +474,12 @@
 
                 const data = await response.json();
                 
-                // --- ROBUST MARKDOWN PARSING ---
                 let parsedHTML;
                 if (typeof marked !== 'undefined') {
-                    // Force the use of the parser
                     parsedHTML = marked.parse(data.answer);
                 } else {
-                    console.error("Marked library not loaded");
-                    parsedHTML = data.answer.replace(/\n/g, "<br>"); // Fallback
+                    parsedHTML = data.answer.replace(/\n/g, "<br>");
                 }
-                
                 document.getElementById(loadingId).innerHTML = parsedHTML;
 
             } catch (error) {
@@ -424,7 +498,6 @@
             return div.id;
         }
 
-        // Event Listeners
         sendBtn.addEventListener('click', sendMessage);
         questionInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
