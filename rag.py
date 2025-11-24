@@ -80,7 +80,6 @@ class PDFIngester:
 
     @classmethod
     def load_vectorstore(cls, index_path: str = None, api_key: str = None) -> Optional[FAISS]:
-existing FAISS index.
         index_path = index_path
         if os.path.exists(index_path):
             embeddings = GoogleGenerativeAIEmbeddings(
@@ -159,4 +158,5 @@ class QAPipeline:
             if "metadata.google.internal" in str(e) or "503" in str(e):
                 print("ADC auth timeout—manual embedding should prevent this. Check API key quotas.")
             return "Sorry, an error occurred while processing your question."
+
 
