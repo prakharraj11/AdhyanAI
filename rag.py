@@ -32,14 +32,12 @@ class PDFIngester:
             chunk_overlap=chunk_overlap,
             length_function=len,
         )
-        
-        # FIX: Use a relative path suitable for Linux/Cloud
-        # This creates a 'vectors' folder inside the current working directory of the server
+
+        # Path in the latest commit
         base_path = os.getcwd()
         self.index_path = os.path.join(base_path, "vectors", "faiss_index")
         
     def extract_text(self, pdf_path: str) -> List[Document]:
-        # ... (Keep this method exactly as it is) ...
         reader = PdfReader(pdf_path)
         documents = []
         for i, page in enumerate(reader.pages, start=1):
@@ -53,7 +51,6 @@ class PDFIngester:
         return documents
 
     def chunk_documents(self, documents: List[Document]) -> List[Document]:
-        # ... (Keep this method exactly as it is) ...
         chunks = self.splitter.split_documents(documents)
         return chunks
 
@@ -70,7 +67,7 @@ class PDFIngester:
             vectorstore = FAISS.from_documents(chunks, self.embeddings)
 
             if save_index:
-                # FIX: Ensure the directory exists using the dynamic path
+                # usng the dynamic path for directory access and creation
                 folder_path = os.path.dirname(self.index_path)
                 os.makedirs(folder_path, exist_ok=True)
                 vectorstore.save_local(self.index_path)
@@ -83,9 +80,7 @@ class PDFIngester:
 
     @classmethod
     def load_vectorstore(cls, index_path: str = None, api_key: str = None) -> Optional[FAISS]:
-        """
-        Load an existing FAISS index.
-        """
+existing FAISS index.
         index_path = index_path
         if os.path.exists(index_path):
             embeddings = GoogleGenerativeAIEmbeddings(
@@ -118,13 +113,13 @@ class QAPipeline:
             temperature=temperature,
             google_api_key=api_key
         )
-# best segement defining the syntax of the I/O with the model
+        # best segement defining the syntax of the I/O with the model
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a helpful assistant that answers questions based solely on the provided context from a PDF document.
             If the answer isn't in the context, say "I couldn't find that information in the document."
-            Keep responses concise, accurate, and cite page numbers where possible. Also when the user gives a query after answering the query attach links to 
-            other research papers that can be referred but they should be relevant to the current paper uploaded by the user. If the user doesn't ask for the citations in his
-             query then you can give just 2 but he asks for citations give atleast 5.""" ),
+            Keep responses, accurate, and cite page numbers where possible. When the user asks for more information regarding the pdf in question which is not there in the pdf but relevant
+            try to help him out by giving relevvant information from the internet. When the user asks for "CITATIONS" give him links of relevant research papers that are in context of the 
+            pdf provded by the user give 5 links and a short description regarding each.""" ),
             ("human", """Context:
                {context}
 
@@ -164,3 +159,4 @@ class QAPipeline:
             if "metadata.google.internal" in str(e) or "503" in str(e):
                 print("ADC auth timeout—manual embedding should prevent this. Check API key quotas.")
             return "Sorry, an error occurred while processing your question."
+
