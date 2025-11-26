@@ -151,6 +151,16 @@
             border-radius: 6px; font-size: 0.9rem; cursor: pointer; margin-bottom: 2px;
         }
         .nav-item:hover, .nav-item.active { background: var(--bg-hover); color: var(--text-main); }
+        
+        /* Logout Button specific styles */
+        .nav-item.logout {
+            margin-top: auto; /* Push to bottom of sidebar */
+            color: #ef4444; /* Red color for logout */
+        }
+        .nav-item.logout:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+        }
 
         /* Main Content Adjustments */
         .main-content {
@@ -303,9 +313,15 @@
             <div class="workspace-dropdown">
                 <span id="user-name-display">Guest Workspace</span>
             </div>
-            <nav>
+            <nav style="height: 100%; display: flex; flex-direction: column;">
                 <div class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> Home</div>
                 <div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg> Library</div>
+                
+                <!-- LOGOUT BUTTON (Pushed to bottom) -->
+                <div class="nav-item logout" id="logout-btn">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Log out
+                </div>
             </nav>
         </aside>
 
@@ -358,6 +374,7 @@
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
         const mainContent = document.getElementById('main-content');
+        const logoutBtn = document.getElementById('logout-btn');
         
         // Theme Switches
         const themeToggleLogin = document.getElementById('theme-toggle-login');
@@ -378,17 +395,13 @@
             }
         }
 
-        // Initialize Theme
         const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            applyTheme(true);
-        }
+        if (savedTheme === 'light') applyTheme(true);
 
-        // Event Listeners for Theme
         themeToggleLogin.addEventListener('change', (e) => applyTheme(e.target.checked));
         themeToggleDash.addEventListener('change', (e) => applyTheme(e.target.checked));
 
-        // --- 2. SIDEBAR TOGGLE LOGIC ---
+        // --- 2. SIDEBAR TOGGLE ---
         sidebarToggle.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
             mainContent.classList.toggle('expanded');
@@ -419,13 +432,42 @@
             }, 500);
         }
 
+        // --- 4. LOGOUT LOGIC (NEW) ---
+        logoutBtn.addEventListener('click', () => {
+            // A. Reset UI State
+            dashboardView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+            loginView.style.opacity = '1';
+            
+            // B. Clear Chat History
+            responseArea.innerHTML = `
+                <div class="message-bubble ai-msg">
+                    Hello! Upload a PDF to get started, or ask me anything.
+                </div>
+            `;
+            
+            // C. Reset Sidebar/User state
+            userNameDisplay.textContent = "Guest Workspace";
+            fileNameLabel.textContent = "Upload PDF";
+            fileInput.value = ""; // Clear file input
+            sidebar.classList.remove('collapsed');
+            mainContent.classList.remove('expanded');
+
+            // D. Sign out from Google (Disable Auto-Select)
+            if (typeof google !== 'undefined') {
+                google.accounts.id.disableAutoSelect();
+            }
+            
+            showToast("Logged out successfully");
+        });
+
         function decodeJwt(token) {
             var base64Url = token.split('.')[1];
             var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
             return JSON.parse(decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
         }
 
-        // --- 4. FILE UPLOAD LOGIC ---
+        // --- 5. FILE UPLOAD ---
         fileInput.addEventListener('change', async () => {
             const file = fileInput.files[0];
             if (!file) return;
@@ -455,7 +497,7 @@
             }
         });
 
-        // --- 5. CHAT LOGIC ---
+        // --- 6. CHAT LOGIC ---
         async function sendMessage() {
             const text = questionInput.value.trim();
             if (!text) return;
@@ -514,3 +556,4 @@
     </script>
 </body>
 </html>
+
